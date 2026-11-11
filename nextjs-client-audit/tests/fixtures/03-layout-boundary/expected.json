@@ -1,0 +1,131 @@
+{
+  "summary": {
+    "useClientFiles": 6,
+    "highPriority": 2
+  },
+  "files": {
+    "src/app/layout.tsx": {
+      "status": "Too broad",
+      "fix": "PUSH_DOWN",
+      "priority": "High",
+      "minModules": 10,
+      "risksInclude": [
+        "Build error today",
+        "server-only",
+        "metadata",
+        "GIT_SHA"
+      ],
+      "fixTargets": [
+        "src/components/SearchBox.tsx"
+      ]
+    },
+    "src/app/dashboard/settings/page.tsx": {
+      "status": "Too broad",
+      "fix": "PUSH_DOWN",
+      "priority": "High"
+    },
+    "src/components/ThemeBadge.tsx": {
+      "status": "Necessary",
+      "fix": null
+    },
+    "src/components/AnimatedLogo.tsx": {
+      "status": "Necessary",
+      "fix": null
+    },
+    "src/components/LocaleSwitch.tsx": {
+      "status": "Needs manual check",
+      "confidence": "low"
+    },
+    "src/components/WidgetBoundary.tsx": {
+      "status": "Necessary",
+      "fix": null
+    }
+  },
+  "drafts": [
+    {
+      "file": "src/app/layout.tsx",
+      "afterFile": "src/app/layout.tsx",
+      "excludes": [
+        "use client",
+        "useState",
+        "usePathname"
+      ],
+      "includes": [
+        "export const metadata",
+        "<SidebarShell>",
+        "<Sidebar />",
+        "<Breadcrumbs />",
+        "{children}"
+      ],
+      "astOnly": true
+    },
+    {
+      "file": "src/app/layout.tsx",
+      "afterFile": "src/components/SidebarShell.tsx",
+      "includes": [
+        "\"use client\"",
+        "useState(false)",
+        "onClick={() => setMenuOpen(!menuOpen)}",
+        "{children}"
+      ],
+      "astOnly": true
+    },
+    {
+      "file": "src/app/layout.tsx",
+      "afterFile": "src/components/Breadcrumbs.tsx",
+      "includes": [
+        "\"use client\"",
+        "usePathname()",
+        "import { usePathname } from \"next/navigation\";"
+      ],
+      "excludes": [
+        "{ path }"
+      ],
+      "astOnly": true
+    },
+    {
+      "file": "src/app/dashboard/settings/page.tsx",
+      "afterFile": "src/components/SettingsForm.tsx",
+      "includes": [
+        "\"use client\"",
+        "import { useForm } from \"react-hook-form\";",
+        "type Values",
+        "<form onSubmit"
+      ],
+      "astOnly": true
+    },
+    {
+      "file": "src/app/dashboard/settings/page.tsx",
+      "afterFile": "src/app/dashboard/settings/page.tsx",
+      "excludes": [
+        "use client",
+        "useForm"
+      ],
+      "includes": [
+        "<SettingsForm />",
+        "<SettingsIntro />"
+      ],
+      "astOnly": true
+    },
+    {
+      "file": "src/app/layout.tsx",
+      "afterFile": "src/components/SearchBox.tsx",
+      "startsWith": "\"use client\";",
+      "astOnly": true
+    },
+    {
+      "file": "src/app/dashboard/settings/page.tsx",
+      "afterFile": "src/app/dashboard/settings/page.tsx",
+      "excludes": [
+        "type Values"
+      ],
+      "astOnly": true
+    }
+  ],
+  "warnings": [
+    {
+      "type": "unimported-client-file",
+      "file": "src/components/WidgetBoundary.tsx"
+    }
+  ]
+}

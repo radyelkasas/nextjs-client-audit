@@ -1,0 +1,84 @@
+{
+  "summary": {
+    "useClientFiles": 4,
+    "unnecessary": 0
+  },
+  "files": {
+    "components/ProductModal.tsx": {
+      "status": "Too broad",
+      "fix": "CHILDREN_PATTERN",
+      "fixTargets": [
+        "components/ProductSpecs.tsx",
+        "components/ReviewsList.tsx"
+      ],
+      "packages": [
+        "date-fns",
+        "marked"
+      ],
+      "priority": "Medium"
+    },
+    "components/RelatedProducts.tsx": {
+      "status": "Too broad",
+      "fix": "MOVE_FETCH",
+      "priority": "Low"
+    },
+    "components/AddToCart.tsx": {
+      "status": "Necessary",
+      "fix": null
+    },
+    "components/StoreMap.tsx": {
+      "status": "Necessary",
+      "fix": null
+    }
+  },
+  "drafts": [
+    {
+      "file": "components/ProductModal.tsx",
+      "afterFile": "components/ProductModal.tsx",
+      "includes": [
+        "{children}",
+        "\"use client\"",
+        "children: React.ReactNode"
+      ],
+      "excludes": [
+        "<ProductSpecs",
+        "<ReviewsList",
+        "import { ProductSpecs",
+        "product: Product",
+        "import type { Product }"
+      ]
+    },
+    {
+      "file": "components/ProductModal.tsx",
+      "afterFile": "app/products/[id]/page.tsx",
+      "includes": [
+        "<ProductSpecs product={product} />",
+        "<ReviewsList productId={product.id} />",
+        "import { ProductSpecs } from \"@/components/ProductSpecs\";",
+        "<ProductModal>",
+        "export default async function ProductPage",
+        "import ProductModal from \"@/components/ProductModal\";"
+      ]
+    },
+    {
+      "file": "components/RelatedProducts.tsx",
+      "afterFile": "components/RelatedProducts.tsx",
+      "includes": [
+        "async function RelatedProducts",
+        "await fetch(",
+        "items.map"
+      ],
+      "excludes": [
+        "use client",
+        "useEffect",
+        "useState"
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "type": "unimported-client-file",
+      "file": "components/StoreMap.tsx"
+    }
+  ]
+}

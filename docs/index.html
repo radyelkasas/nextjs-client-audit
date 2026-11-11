@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-lang="ar">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>nextjs-client-audit · "use client" مش زرار سحري</title>
+<meta name="description" content="Claude Code Skill that finds every unnecessary &quot;use client&quot; in a Next.js App Router project, measures what it costs, and gives a safe fix from your own code." />
+<meta property="og:title" content="nextjs-client-audit — &quot;use client&quot; is not a magic switch" />
+<meta property="og:description" content="A Claude Code Skill that audits every &quot;use client&quot; in your Next.js app and hands you safe Before/After fixes." />
+<meta name="theme-color" content="#EFE9DD" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2317141F'/%3E%3Ctext x='32' y='44' font-family='monospace' font-weight='700' font-size='30' text-anchor='middle' fill='%23FFC93C'%3ER;%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@500;700&family=Baloo+Bhaijaan+2:wght@600;800&family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #EFE9DD; --sheet: #FFFCF5; --ink: #17141F; --soft: #6E6879; --line: #D9D1C2;
+    --tomato: #FF4A2B; --cyan: #00A8CC; --butter: #FFC93C; --mint: #13B26B; --code: #17141F; --code-ink: #F3EEE4;
+    --display: "Bricolage Grotesque", "Baloo Bhaijaan 2", system-ui, sans-serif;
+    --body: "IBM Plex Sans Arabic", "Bricolage Grotesque", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    --shadow: 6px 6px 0 var(--ink);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #16131C; --sheet: #211D2A; --ink: #F3EEE4; --soft: #A59FB3; --line: #3A3446; --code: #0E0C12; --shadow: 6px 6px 0 #000; }
+  }
+  :root[data-theme="dark"] { --bg: #16131C; --sheet: #211D2A; --ink: #F3EEE4; --soft: #A59FB3; --line: #3A3446; --code: #0E0C12; --shadow: 6px 6px 0 #000; }
+  * { box-sizing: border-box; }
+  .fixes > *, .ba > *, .trust > *, .tests > *, .demo > *, .hero .grid > * { min-width: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.65;
+    background-image: linear-gradient(rgba(127,117,100,.10) 1.5px, transparent 1.5px), linear-gradient(90deg, rgba(127,117,100,.10) 1.5px, transparent 1.5px);
+    background-size: 44px 44px; overflow-x: hidden;
+  }
+  [data-lang="ar"] .en, [data-lang="en"] .ar { display: none !important; }
+  [data-lang="ar"] h1, [data-lang="ar"] h2, [data-lang="ar"] h3 { font-family: "Baloo Bhaijaan 2", var(--display); }
+  code, pre, .mono { font-family: var(--mono); direction: ltr; unicode-bidi: isolate; }
+  a { color: inherit; }
+  .wrap { width: min(1120px, 100% - 32px); margin-inline: auto; }
+  .ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
+
+  /* nav */
+  nav.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 3px solid var(--ink); }
+  nav.top .wrap { display: flex; align-items: center; gap: 18px; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .brand b { background: var(--ink); color: var(--butter); border-radius: 9px; padding: 2px 8px; }
+  .navlinks { display: flex; gap: 18px; margin-inline-start: auto; font-weight: 500; }
+  .navlinks a { text-decoration: none; opacity: .8; } .navlinks a:hover { opacity: 1; text-decoration: underline; text-underline-offset: 4px; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; border: 3px solid var(--ink); border-radius: 999px; background: var(--sheet); color: var(--ink); padding: 6px 14px; font-weight: 700; cursor: pointer; font-family: var(--display); font-size: 15px; text-decoration: none; box-shadow: 3px 3px 0 var(--ink); }
+  .pill:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+  .pill:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
+  @media (max-width: 860px) { .navlinks { display: none; } .brand span { display: none; } nav.top .wrap { justify-content: space-between; } }
+
+  /* hero */
+  .hero { padding: 64px 0 40px; }
+  .hero .grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 44px; align-items: center; }
+  @media (max-width: 960px) { .hero .grid { grid-template-columns: 1fr; } }
+  .eyebrow { display: inline-flex; gap: 8px; align-items: center; font-family: var(--display); font-weight: 800; font-size: 15px; background: var(--tomato); color: #fff; border: 3px solid var(--ink); border-radius: 12px; padding: 3px 12px; transform: rotate(-2deg); box-shadow: 3px 3px 0 var(--ink); }
+  h1 { font-family: var(--display); font-weight: 800; font-size: clamp(40px, 6.4vw, 76px); line-height: 1.04; margin: 22px 0 18px; letter-spacing: -.02em; }
+  h1 .uc { font-family: var(--mono); font-weight: 700; background: var(--butter); color: #17141F; border: 4px solid var(--ink); border-radius: 14px; padding: 0 .18em; display: inline-block; transform: rotate(-2deg); box-shadow: var(--shadow); font-size: .82em; direction: ltr; }
+  h1 .strike { background: linear-gradient(transparent 58%, color-mix(in srgb, var(--tomato) 45%, transparent) 58%); }
+  .lead { font-size: 20px; color: var(--soft); max-width: 36em; margin: 0 0 26px; }
+  .lead strong { color: var(--ink); }
+  .cta { display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 800; font-size: 18px; border: 4px solid var(--ink); border-radius: 16px; padding: 12px 22px; text-decoration: none; box-shadow: var(--shadow); cursor: pointer; }
+  .btn.primary { background: var(--ink); color: var(--bg); }
+  .btn.ghost { background: var(--sheet); color: var(--ink); }
+  .btn:hover { transform: translate(-2px, -2px); box-shadow: 8px 8px 0 var(--ink); }
+  .btn svg { width: 20px; height: 20px; }
+
+  /* terminal */
+  .term { background: var(--code); color: var(--code-ink); border: 4px solid var(--ink); border-radius: 22px; box-shadow: 10px 10px 0 var(--butter); overflow: hidden; direction: ltr; }
+  .term .bar { display: flex; gap: 8px; align-items: center; padding: 12px 16px; background: #211D2C; font-family: var(--mono); font-size: 13px; color: #A59FB3; }
+  .term .dot { width: 12px; height: 12px; border-radius: 9px; }
+  .term pre { margin: 0; padding: 18px 20px 22px; font-size: 13.5px; line-height: 1.7; min-height: 360px; white-space: pre-wrap; word-break: break-word; }
+  .t-dim { color: #8D869B; } .t-tom { color: #FF8A73; } .t-mint { color: #5BE3A1; } .t-but { color: var(--butter); } .t-cy { color: #5FD4EC; }
+  .caret { display: inline-block; width: 9px; height: 1.1em; background: var(--butter); vertical-align: -3px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  section { padding: 64px 0; }
+  .sec-head { margin-bottom: 30px; }
+  .chap { display: inline-flex; align-items: center; gap: 10px; }
+  .chap .n { font-family: var(--display); font-weight: 800; color: #fff; background: var(--tomato); border: 3px solid var(--ink); border-radius: 10px; padding: 0 10px; transform: rotate(-4deg); }
+  .chap .tag { font-family: var(--mono); font-weight: 700; color: var(--butter); background: #17141F; border-radius: 10px; padding: 2px 12px; direction: ltr; }
+  h2 { font-family: var(--display); font-weight: 800; font-size: clamp(30px, 4.2vw, 48px); line-height: 1.12; margin: 14px 0 10px; letter-spacing: -.01em; }
+  .sub { color: var(--soft); font-size: 19px; max-width: 46em; margin: 0; }
+  .card { background: var(--sheet); border: 4px solid var(--ink); border-radius: 24px; box-shadow: var(--shadow); }
+
+  /* boundary demo */
+  .demo { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 22px; padding: 22px; direction: ltr; }
+  @media (max-width: 760px) { .demo { grid-template-columns: 1fr; } }
+  .tree { position: relative; height: 420px; }
+  .tree svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .node { position: absolute; transform: translateX(-50%); width: 30%; min-width: 96px; max-width: 170px; height: 64px; border: 4px solid var(--ink); border-radius: 16px; background: var(--sheet); display: flex; align-items: center; justify-content: center; gap: 6px; font-family: var(--mono); font-weight: 700; font-size: 14px; box-shadow: 4px 4px 0 var(--ink); transition: background .45s, color .45s, transform .45s; }
+  .node.client { background: var(--cyan); color: #fff; box-shadow: 4px 4px 0 #0b5f73; transform: translateX(-50%) scale(1.04); }
+  .node .ic { width: 16px; height: 16px; }
+  .note { position: absolute; font-family: var(--mono); font-weight: 700; font-size: 12.5px; background: var(--butter); color: #17141F; border: 3px solid var(--ink); border-radius: 6px; padding: 3px 9px; transform: rotate(-6deg); box-shadow: 3px 3px 0 var(--ink); transition: left .7s cubic-bezier(.76,0,.24,1), top .7s cubic-bezier(.76,0,.24,1); white-space: nowrap; z-index: 3; }
+  .fence { position: absolute; border: 4px dashed var(--cyan); border-radius: 22px; background: rgba(0,168,204,.07); transition: all .7s cubic-bezier(.76,0,.24,1); }
+  .browser { border: 4px solid var(--ink); border-radius: 20px; background: var(--sheet); overflow: hidden; display: flex; flex-direction: column; box-shadow: 6px 6px 0 var(--ink); transition: box-shadow .4s; min-height: 300px; }
+  .browser.heavy { box-shadow: 6px 6px 0 var(--tomato); } .browser.light { box-shadow: 6px 6px 0 var(--mint); }
+  .browser .head { padding: 10px 14px; border-bottom: 4px solid var(--ink); font-family: var(--mono); font-weight: 700; font-size: 14px; background: color-mix(in srgb, var(--sheet) 80%, var(--line)); }
+  .browser .stack { flex: 1; display: flex; flex-direction: column-reverse; gap: 8px; padding: 12px; }
+  .chunk { background: var(--cyan); color: #fff; border: 3px solid var(--ink); border-radius: 10px; padding: 6px 10px; font-family: var(--mono); font-weight: 700; font-size: 13px; animation: drop .45s cubic-bezier(.34,1.4,.64,1) both; }
+  @keyframes drop { from { transform: translateY(-30px); opacity: 0; } }
+  .browser .foot { border-top: 4px solid var(--ink); padding: 10px; text-align: center; font-family: var(--display); font-weight: 800; }
+  .toggle { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  .toggle button { font-family: var(--display); font-weight: 800; font-size: 16px; border: 3px solid var(--ink); border-radius: 14px; padding: 9px 16px; background: var(--sheet); color: var(--ink); cursor: pointer; box-shadow: 3px 3px 0 var(--ink); }
+  .toggle button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .explain { margin-top: 16px; font-size: 18px; min-height: 3.4em; }
+
+  /* fixes */
+  .fixes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+  @media (max-width: 860px) { .fixes { grid-template-columns: minmax(0, 1fr); } }
+  .fix { padding: 22px; }
+  .fix .k { font-family: var(--mono); font-weight: 700; font-size: 15px; display: inline-block; padding: 3px 12px; border: 3px solid var(--ink); border-radius: 10px; direction: ltr; }
+  .fix h3 { font-family: var(--display); font-size: 24px; margin: 12px 0 4px; }
+  .fix p { margin: 0 0 14px; color: var(--soft); }
+  .ba { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; direction: ltr; }
+  @media (max-width: 520px) { .ba { grid-template-columns: minmax(0, 1fr); } }
+  .ba pre { margin: 0; background: var(--code); color: var(--code-ink); border-radius: 14px; padding: 12px 14px; font-size: 12.5px; line-height: 1.55; overflow-x: auto; border: 3px solid var(--ink); }
+  .ba .lbl { font-family: var(--display); font-weight: 800; font-size: 13px; margin-bottom: 6px; color: var(--soft); }
+  .ba .bad { color: #FF8A73; } .ba .good { color: #5BE3A1; }
+
+  /* report */
+  .report { padding: 0; overflow: hidden; }
+  .report .rhead { padding: 16px 22px; background: #17141F; color: #F3EEE4; font-family: var(--mono); font-size: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; direction: ltr; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 4px solid var(--ink); }
+  @media (max-width: 700px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .stat { padding: 18px 20px; border-inline-end: 3px solid var(--line); }
+  .stat b { display: block; font-family: var(--display); font-size: 40px; line-height: 1; }
+  .stat span { color: var(--soft); font-size: 15px; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; direction: ltr; text-align: left; font-size: 15px; min-width: 720px; }
+  th, td { padding: 13px 16px; border-bottom: 2px solid var(--line); vertical-align: top; }
+  th { font-family: var(--display); font-weight: 800; font-size: 14px; color: var(--soft); background: color-mix(in srgb, var(--sheet) 70%, var(--line)); }
+  td code { font-size: 13.5px; background: color-mix(in srgb, var(--line) 50%, transparent); padding: 1px 6px; border-radius: 6px; }
+  .prio { font-weight: 800; font-family: var(--display); }
+  .prio.High { color: var(--tomato); } .prio.Low { color: var(--soft); }
+  .chip { font-family: var(--mono); font-weight: 700; font-size: 12.5px; padding: 2px 8px; border-radius: 8px; border: 2px solid var(--ink); white-space: nowrap; }
+  .chip.PUSH_DOWN { background: var(--butter); color: #17141F; } .chip.REMOVE { background: var(--mint); color: #fff; } .chip.CHILDREN_PATTERN { background: var(--cyan); color: #fff; } .chip.MOVE_FETCH { background: var(--tomato); color: #fff; }
+  .manual { display: inline-block; font-weight: 800; color: var(--tomato); }
+
+  /* trust */
+  .trust { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 900px) { .trust { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .trust { grid-template-columns: 1fr; } }
+  .tcard { padding: 20px; }
+  .tcard .ico { width: 46px; height: 46px; border: 3px solid var(--ink); border-radius: 12px; display: grid; place-items: center; margin-bottom: 10px; box-shadow: 3px 3px 0 var(--ink); }
+  .tcard h3 { font-family: var(--display); font-size: 20px; margin: 0 0 6px; }
+  .tcard p { margin: 0; color: var(--soft); font-size: 16px; }
+
+  .steps { counter-reset: s; display: grid; gap: 14px; }
+  .step { display: grid; grid-template-columns: 54px 1fr; gap: 14px; align-items: start; padding: 16px 18px; }
+  .step::before { counter-increment: s; content: counter(s); font-family: var(--display); font-weight: 800; font-size: 24px; width: 48px; height: 48px; display: grid; place-items: center; border: 3px solid var(--ink); border-radius: 50%; background: var(--butter); color: #17141F; }
+  .step h3 { margin: 4px 0 2px; font-family: var(--display); font-size: 20px; }
+  .step p { margin: 0; color: var(--soft); }
+
+  /* tests strip */
+  .tests { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; overflow: hidden; }
+  @media (max-width: 760px) { .tests { grid-template-columns: 1fr; } }
+  .tests > div { padding: 20px 22px; border-inline-end: 3px solid var(--line); }
+  .tests .fx { font-family: var(--mono); font-weight: 700; font-size: 13px; color: var(--soft); direction: ltr; display: inline-block; }
+  .tests h3 { font-family: var(--display); margin: 6px 0 6px; font-size: 19px; }
+  .tests p { margin: 0; color: var(--soft); font-size: 15.5px; }
+  .tests-foot { padding: 16px 22px; border-top: 4px solid var(--ink); background: var(--ink); color: var(--bg); font-family: var(--display); font-weight: 700; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .tests-foot code { background: rgba(255,255,255,.12); padding: 2px 8px; border-radius: 6px; }
+
+  /* install */
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px 18px 0; }
+  .tabs button { font-family: var(--display); font-weight: 800; font-size: 15px; border: 3px solid var(--ink); border-bottom: none; border-radius: 12px 12px 0 0; padding: 8px 14px; background: transparent; color: var(--ink); cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: var(--code); color: var(--code-ink); }
+  .panel { display: none; margin: 0 18px 18px; position: relative; }
+  .panel.on { display: block; }
+  .panel pre { margin: 0; background: var(--code); color: var(--code-ink); border: 3px solid var(--ink); border-radius: 0 14px 14px 14px; padding: 18px 20px; font-size: 14.5px; overflow-x: auto; line-height: 1.7; }
+  .copy { position: absolute; top: 10px; inset-inline-end: 10px; font-family: var(--display); font-weight: 800; font-size: 13px; border: 2px solid #F3EEE4; color: #F3EEE4; background: transparent; border-radius: 9px; padding: 3px 10px; cursor: pointer; }
+  [dir="rtl"] .copy { inset-inline-end: auto; right: 10px; }
+  .panel p { margin: 12px 4px 0; color: var(--soft); }
+  .try { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+  .try code { background: var(--sheet); border: 3px solid var(--ink); border-radius: 12px; padding: 8px 14px; font-weight: 700; box-shadow: 3px 3px 0 var(--ink); }
+
+  details { background: var(--sheet); border: 3px solid var(--ink); border-radius: 16px; padding: 14px 18px; margin-bottom: 12px; box-shadow: 4px 4px 0 var(--ink); }
+  summary { cursor: pointer; font-family: var(--display); font-weight: 800; font-size: 18px; }
+  details p { margin: 10px 0 0; color: var(--soft); }
+
+  footer { border-top: 4px solid var(--ink); padding: 34px 0 50px; margin-top: 30px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; align-items: center; }
+  .sig { display: flex; align-items: center; gap: 12px; font-family: var(--display); font-weight: 800; font-size: 20px; }
+  .sig b { font-family: var(--mono); background: var(--ink); color: var(--butter); border-radius: 10px; padding: 2px 10px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<nav class="top" aria-label="Main">
+  <div class="wrap">
+    <a class="brand" href="#top"><b>R;</b><span>nextjs-client-audit</span></a>
+    <div class="navlinks">
+      <a href="#boundary"><span class="ar">الـ Boundary</span><span class="en">The boundary</span></a>
+      <a href="#fixes"><span class="ar">الحلول</span><span class="en">Fixes</span></a>
+      <a href="#report"><span class="ar">التقرير</span><span class="en">Report</span></a>
+      <a href="#trust"><span class="ar">ليه تثق فيها</span><span class="en">Trust</span></a>
+      <a href="#install"><span class="ar">التسطيب</span><span class="en">Install</span></a>
+    </div>
+    <button class="pill" id="langBtn" type="button" aria-label="Switch language"><span class="ar">English</span><span class="en">العربي</span></button>
+    <a class="pill" href="https://github.com/radyelkasas/nextjs-client-audit" aria-label="GitHub repository">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.25-1.28-5.25-5.68 0-1.26.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.82 1.19 3.08 0 4.41-2.7 5.38-5.27 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap grid">
+    <div>
+      <span class="eyebrow"><span class="ar">Skill لـ Claude Code</span><span class="en">A Claude Code Skill</span></span>
+      <h1>
+        <span class="ar"><span class="uc">"use client"</span><br />مش <span class="strike">زرار سحري</span></span>
+        <span class="en"><span class="uc">"use client"</span><br />is not a <span class="strike">magic switch</span></span>
+      </h1>
+      <p class="lead">
+        <span class="ar">بتلاقي كل <code>"use client"</code> ملهاش لازمة في مشروع Next.js، وتقيس كل واحدة <strong>بتسحب كام module للمتصفح</strong>، وتديك حل آمن مكتوب <strong>من الكود بتاعك نفسه</strong>.</span>
+        <span class="en">Finds every unnecessary <code>"use client"</code> in a Next.js App Router project, measures <strong>how much code each one drags into the browser</strong>, and gives you a safe fix written <strong>from your own code</strong>.</span>
+      </p>
+      <div class="cta">
+        <a class="btn primary" href="#install">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 21h14"/></svg>
+          <span class="ar">سطّبها</span><span class="en">Install</span>
+        </a>
+        <a class="btn ghost" href="#report"><span class="ar">شوف تقرير حقيقي</span><span class="en">See a real report</span></a>
+      </div>
+    </div>
+    <div class="term" role="img" aria-label="Claude Code running the audit">
+      <div class="bar"><span class="dot" style="background:#FF4A2B"></span><span class="dot" style="background:#FFC93C"></span><span class="dot" style="background:#13B26B"></span>&nbsp; claude — my-dashboard</div>
+      <pre id="termOut"></pre>
+    </div>
+  </div>
+</header>
+
+<section id="boundary">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="chap"><span class="n">01</span><span class="tag">&lt;Boundary /&gt;</span></div>
+      <h2><span class="ar">الـ directive دي مش بتخص الملف ده بس</span><span class="en">The directive is not about one file</span></h2>
+      <p class="sub"><span class="ar">أي حاجة الملف بيعملها <code>import</code> بتنزل للمتصفح معاه. جرّب بنفسك: حط الـ <code>"use client"</code> فوق، وبعدين انزل بيها لأصغر حتة.</span><span class="en">Everything the file imports ships to the browser with it. Try it: put <code>"use client"</code> at the top, then push it down to the smallest piece.</span></p>
+    </div>
+    <div class="card demo">
+      <div>
+        <div class="tree" id="tree">
+          <div class="fence" id="fence"></div>
+          <svg id="edges" aria-hidden="true"></svg>
+        </div>
+      </div>
+      <div class="browser" id="browser">
+        <div class="head">🌐 Browser</div>
+        <div class="stack" id="stack"></div>
+        <div class="foot" id="bfoot">JavaScript</div>
+      </div>
+    </div>
+    <div class="toggle" role="group" aria-label="Where is use client?">
+      <button type="button" data-mode="top" aria-pressed="true"><span class="ar">"use client" فوق الصفحة</span><span class="en">"use client" on the page</span></button>
+      <button type="button" data-mode="down" aria-pressed="false"><span class="ar">انزل بيها للـ LikeButton</span><span class="en">Push it down to LikeButton</span></button>
+    </div>
+    <p class="explain" id="explain"></p>
+  </div>
+</section>
+
+<section id="fixes">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="chap"><span class="n">02</span><span class="tag">&lt;Fixes /&gt;</span></div>
+      <h2><span class="ar">4 أنواع حلول، كل واحد ليه إمتى</span><span class="en">Four fixes, each with a clear "when"</span></h2>
+      <p class="sub"><span class="ar">الـ Skill بتختار الحل حسب الكود نفسه: مين بيستخدم الـ state، ومين بيعمل import لمين، وإيه اللي موجود في الـ client bundle أصلًا.</span><span class="en">The skill picks the fix from the code itself: who uses which state, who imports what, and what is already in the client bundle anyway.</span></p>
+    </div>
+    <div class="fixes">
+      <article class="card fix">
+        <span class="k" style="background:var(--mint);color:#fff">REMOVE</span>
+        <h3><span class="ar">شيلها خالص</span><span class="en">Remove it</span></h3>
+        <p><span class="ar">الملف مفيهوش hooks ولا events ولا browser APIs. بيعمل render لـ components بس.</span><span class="en">No hooks, no events, no browser APIs. It only renders other components.</span></p>
+        <div class="ba"><div><div class="lbl">Before</div><pre><span class="bad">"use client";</span>
+import { TeamCard } from "@/components/TeamCard";
+
+export default function AboutPage() {
+  return &lt;TeamCard … /&gt;;
+}</pre></div><div><div class="lbl">After</div><pre>import { TeamCard } from "@/components/TeamCard";
+
+export default function AboutPage() {
+  return &lt;TeamCard … /&gt;;
+}</pre></div></div>
+      </article>
+      <article class="card fix">
+        <span class="k" style="background:var(--butter);color:#17141F">PUSH_DOWN</span>
+        <h3><span class="ar">انزل بيها لأصغر حتة</span><span class="en">Push it down</span></h3>
+        <p><span class="ar">الـ hook بيغذّي component واحد بس؟ انقله جواه، والـ layout يرجع Server.</span><span class="en">A hook feeds only one component? Move it inside, and the layout becomes a Server Component again.</span></p>
+        <div class="ba"><div><div class="lbl">Before · layout.tsx</div><pre><span class="bad">"use client";</span>
+const pathname = usePathname();
+…
+&lt;Breadcrumbs path={pathname} /&gt;</pre></div><div><div class="lbl">After · Breadcrumbs.tsx</div><pre><span class="good">"use client";</span>
+export function Breadcrumbs() {
+  const path = usePathname();
+  …</pre></div></div>
+      </article>
+      <article class="card fix">
+        <span class="k" style="background:var(--cyan);color:#fff">CHILDREN_PATTERN</span>
+        <h3><span class="ar">الـ Modal Client، والمحتوى Server</span><span class="en">Client wrapper, server content</span></h3>
+        <p><span class="ar">الـ Modal محتاج state، بس المحتوى التقيل جواه ممكن ييجي من الـ Server كـ children.</span><span class="en">The Modal needs state, but the heavy content inside can arrive from the server as children.</span></p>
+        <div class="ba"><div><div class="lbl">Before · ProductModal.tsx</div><pre><span class="bad">"use client";</span>
+import { ProductSpecs } …   <span class="bad">// + marked</span>
+…
+&lt;ProductSpecs product={product} /&gt;</pre></div><div><div class="lbl">After · page.tsx (Server)</div><pre>&lt;ProductModal&gt;
+  &lt;ProductSpecs product={product} /&gt;
+&lt;/ProductModal&gt;
+<span class="good">// Modal renders {children}</span></pre></div></div>
+      </article>
+      <article class="card fix">
+        <span class="k" style="background:var(--tomato);color:#fff">MOVE_FETCH</span>
+        <h3><span class="ar">هات الـ Data من الـ Server</span><span class="en">Fetch on the server</span></h3>
+        <p><span class="ar">لو الـ component بقى Client عشان <code>useEffect</code> + <code>fetch</code> بس، خليه async Server Component.</span><span class="en">If it is client only for <code>useEffect</code> + <code>fetch</code>, make it an async Server Component.</span></p>
+        <div class="ba"><div><div class="lbl">Before</div><pre><span class="bad">"use client";</span>
+const [items, setItems] = useState([]);
+useEffect(() =&gt; { fetch(…) … }, []);</pre></div><div><div class="lbl">After</div><pre>export default async function
+  RelatedProducts({ category }) {
+  const items = await getRelated(category);
+  return &lt;ul&gt;…&lt;/ul&gt;;
+}</pre></div></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="report">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="chap"><span class="n">03</span><span class="tag">&lt;Report /&gt;</span></div>
+      <h2><span class="ar">ده تقرير حقيقي، مش mockup</span><span class="en">A real report, not a mock-up</span></h2>
+      <p class="sub"><span class="ar">ده الـ output الحقيقي للـ audit على مشروع الاختبار رقم 3: dashboard الـ layout بتاعته عليها <code>"use client"</code>. وبعده Before/After كامل لأهم 3 مشاكل.</span><span class="en">This is the actual audit output for test project 3: a dashboard whose layout is marked <code>"use client"</code>. A full Before/After for the top 3 findings follows it.</span></p>
+    </div>
+    <div class="card report">
+      <div class="rhead"><span>## "use client" audit — 03-layout-boundary</span><span>parser: typescript · read-only</span></div>
+      <div class="stats">
+        <div class="stat"><b>6</b><span class="ar">ملفات عليها "use client"</span><span class="en">files with "use client"</span></div>
+        <div class="stat"><b style="color:var(--tomato)">2</b><span class="ar">أولوية High</span><span class="en">High priority</span></div>
+        <div class="stat"><b>≈13</b><span class="ar">module بيسحبهم الـ layout</span><span class="en">modules pulled by the layout</span></div>
+        <div class="stat"><b>1</b><span class="ar">محتاج مراجعة يدوية</span><span class="en">needs a manual check</span></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>File</th><th>Why it is flagged</th><th>Priority</th><th>Fix</th><th>≈ Modules</th></tr></thead>
+          <tbody>
+            <tr><td><code>src/app/layout.tsx</code></td><td>Everything this layout imports is sent to the browser on every page under it. Client features used: <code>useState()</code>, <code>usePathname()</code>, <code>onClick</code> on &lt;button&gt;.</td><td class="prio High">High</td><td><span class="chip PUSH_DOWN">PUSH_DOWN</span></td><td>≈13</td></tr>
+            <tr><td><code>src/app/dashboard/settings/page.tsx</code></td><td>A page marked "use client" makes the whole page client code. Uses <code>useForm()</code> (react-hook-form), <code>onSubmit</code>.</td><td class="prio High">High</td><td><span class="chip PUSH_DOWN">PUSH_DOWN</span></td><td>≈2 + react-hook-form</td></tr>
+            <tr><td><code>src/components/LocaleSwitch.tsx</code></td><td><span class="manual">Needs manual check</span> · <code>useFeatureFlag()</code> from an unknown package: may or may not work on the Server.</td><td class="prio Low">Low</td><td><span class="chip REMOVE">REMOVE</span></td><td>≈1</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:18px 22px;border-top:4px solid var(--ink)">
+        <div class="ba">
+          <div><div class="lbl">After · src/app/layout.tsx (Server Component)</div><pre>export const metadata = { title: "Acme Dashboard" };
+
+export default function DashboardLayout({ children }) {
+  return (
+    &lt;html lang="en"&gt;&lt;body&gt;
+      &lt;Header /&gt;
+      <span class="good">&lt;SidebarShell sidebar={&lt;Sidebar /&gt;}&gt;</span>
+        &lt;main&gt;
+          <span class="good">&lt;Breadcrumbs /&gt;</span>
+          {children}
+        &lt;/main&gt;
+      <span class="good">&lt;/SidebarShell&gt;</span>
+      &lt;ThemeBadge /&gt;
+      &lt;Footer /&gt;
+    &lt;/body&gt;&lt;/html&gt;
+  );
+}</pre></div>
+          <div><div class="lbl">New · src/components/SidebarShell.tsx</div><pre><span class="good">"use client";</span>
+import { useState } from "react";
+
+export function SidebarShell({ sidebar, children }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    &lt;&gt;
+      &lt;button className="menu-toggle"
+        aria-expanded={menuOpen}
+        onClick={() =&gt; setMenuOpen(!menuOpen)}&gt;
+        Menu
+      &lt;/button&gt;
+      &lt;div className="shell" data-open={menuOpen}&gt;
+        {sidebar}
+        {children}
+      &lt;/div&gt;
+    &lt;/&gt;
+  );
+}</pre></div>
+        </div>
+        <p style="margin:14px 2px 0;color:var(--soft)"><span class="ar">⚠️ وفي نفس التقرير: <code>SearchBox.tsx</code> بيستخدم <code>useState</code> من غير <code>"use client"</code>، وكان شغال بس عشان كان جوه الـ boundary بتاعة الـ layout، فالحل بيضيفله الـ directive. والـ <code>usePathname</code> بيتنقل جوه <code>Breadcrumbs</code>. وبيقولك إن الـ layout فيها build error النهارده: <code>metadata</code> جوه Client Component، و<code>import "server-only"</code> جوه الـ boundary. الحل ده بيصلّح الاتنين. وClaude بيراجع ترتيب الـ DOM، فالـ shell بيرندر نفس الـ <code>div.shell</code> اللي كان موجود.</span><span class="en">⚠️ The same report also catches that <code>SearchBox.tsx</code> uses <code>useState</code> with no <code>"use client"</code> of its own. It only worked inside the layout's boundary, so the fix gives it the directive. <code>usePathname</code> moves into <code>Breadcrumbs</code>. The report also flags that the layout is a build error today (<code>metadata</code> in a Client Component, and <code>import "server-only"</code> inside the boundary), and this fix repairs both. Claude checks the DOM order too, so the shell renders the same <code>div.shell</code> the layout had.</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="trust">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="chap"><span class="n">04</span><span class="tag">&lt;Trust /&gt;</span></div>
+      <h2><span class="ar">مصممة إنها متكدبش عليك</span><span class="en">Built not to lie to you</span></h2>
+      <p class="sub"><span class="ar">أي audit بيقول "شيل الـ directive" غلط ممكن يكسر الـ build. عشان كده كل قرار عليه دليل، وأي حاجة مش مؤكدة بتتقال بوضوح.</span><span class="en">An audit that wrongly says "remove the directive" breaks your build. So every verdict comes with evidence, and anything uncertain is said out loud.</span></p>
+    </div>
+    <div class="trust">
+      <div class="card tcard"><div class="ico" style="background:var(--mint)">🔒</div><h3>Read-only</h3><p><span class="ar">مش بتعدّل ولا ملف. Claude بيطبّق حل واحد في المرة، وبعد ما تقوله "اه" بس.</span><span class="en">Never edits a file. Claude applies one fix at a time, only after you say yes.</span></p></div>
+      <div class="card tcard"><div class="ico" style="background:var(--butter)">❓</div><h3>Needs manual check</h3><p><span class="ar">Hook من package مش معروف؟ import مش لاقياه؟ بتقولك إنها مش متأكدة وتتأكد من إيه.</span><span class="en">Unknown package hook? An import it can't resolve? It says it isn't sure, and what to check.</span></p></div>
+      <div class="card tcard"><div class="ico" style="background:var(--cyan)">📦</div><h3><span class="ar">بتفتح الـ packages</span><span class="en">Opens your packages</span></h3><p><span class="ar">قبل ما تقولك شيل الـ directive من wrapper بتاع Radix، بتتأكد إن الـ package نفسه فيه "use client".</span><span class="en">Before saying a Radix/shadcn wrapper can drop its directive, it checks the package itself ships "use client".</span></p></div>
+      <div class="card tcard"><div class="ico" style="background:var(--tomato)">🎯</div><h3><span class="ar">مكسب حقيقي بس</span><span class="en">Only real wins</span></h3><p><span class="ar">مش بتقترح تنقل component كـ children لو هو أصلًا في الـ client bundle، أو لو بيستخدم الـ state.</span><span class="en">Won't suggest moving a component to children if it's in the client bundle anyway, or uses the wrapper's state.</span></p></div>
+      <div class="card tcard"><div class="ico" style="background:var(--sheet)">📐</div><h3><span class="ar">تقدير، مش bytes</span><span class="en">Estimates, not bytes</span></h3><p><span class="ar">بتعدّ الـ modules من الـ import graph وبتقول إنه تقدير. الأرقام الحقيقية من <code>next build</code>.</span><span class="en">Counts modules from the import graph and labels it an estimate. Real numbers come from <code>next build</code>.</span></p></div>
+      <div class="card tcard"><div class="ico" style="background:var(--mint)">⚠️</div><h3><span class="ar">بتقولك المخاطرة</span><span class="en">Names the risk</span></h3><p><span class="ar">MOVE_FETCH بيغيّر وقت تحميل الـ Data، والـ fetch بـ URL relative مش بيشتغل على الـ Server. بتقولك الكلام ده جنب الحل.</span><span class="en">MOVE_FETCH changes when data loads, and a relative fetch URL fails on the server. You hear it next to the fix.</span></p></div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="chap"><span class="n">05</span><span class="tag">&lt;How /&gt;</span></div>
+      <h2><span class="ar">بتشتغل إزاي</span><span class="en">How it works</span></h2>
+    </div>
+    <div class="steps">
+      <div class="card step"><div><h3><span class="ar">Discovery</span><span class="en">Discovery</span></h3><p><span class="ar">بتلف على <code>app/</code> و<code>components/</code> (و<code>src/</code>)، وبتتجاهل node_modules والـ build والـ tests. ولو مفيش App Router بتقولك ده وتقف.</span><span class="en">Scans <code>app/</code> and <code>components/</code> (and <code>src/</code>), skipping node_modules, builds and tests. If there is no App Router, it says so and stops.</span></p></div></div>
+      <div class="card step"><div><h3><span class="ar">Directive حقيقية بس</span><span class="en">Real directives only</span></h3><p><span class="ar">بتقرا أول الملف زي الـ bundler بالظبط. "use client" اللي في comment أو string مش بتتحسب، واللي بعد الـ imports بتنبّهك عليها.</span><span class="en">Reads the file prologue exactly like the bundler does. "use client" in a comment or string doesn't count; one after the imports gets flagged.</span></p></div></div>
+      <div class="card step"><div><h3><span class="ar">محتاجاها ولا لأ؟</span><span class="en">Needed or not?</span></h3><p><span class="ar">بتدوّر على Hooks وEvents وBrowser APIs ومكتبات client، وبتفتح الـ custom hooks وتشوفها. بتستخدم الـ TypeScript compiler API لو موجود في مشروعك.</span><span class="en">Looks for hooks, events, browser APIs and client libraries, and opens custom hooks to check them. Uses the TypeScript compiler API from your project when available.</span></p></div></div>
+      <div class="card step"><div><h3><span class="ar">الـ Import graph</span><span class="en">Import graph</span></h3><p><span class="ar">بتبني الـ graph بالـ aliases بتاعة tsconfig، وتعدّ كل boundary بتسحب كام module، ومين من تحت معتمد عليها.</span><span class="en">Builds the graph with your tsconfig aliases, counts what each boundary pulls in, and finds children that silently rely on it.</span></p></div></div>
+      <div class="card step"><div><h3><span class="ar">الحل + Before/After</span><span class="en">Fix + Before/After</span></h3><p><span class="ar">بتشوف مين بيستخدم أنهي state فين، وتختار الحل، وتكتب الكود من ملفاتك. وClaude بيراجعه على الملفات الحقيقية قبل ما يعرضه.</span><span class="en">Traces which JSX uses which state, picks the fix, and drafts code from your files. Claude reviews it against the real files before showing you.</span></p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="tests">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="chap"><span class="n">06</span><span class="tag">&lt;Tested /&gt;</span></div>
+      <h2><span class="ar">متجرّبة على مشاريع حقيقية الشكل</span><span class="en">Tested on realistic projects</span></h2>
+      <p class="sub"><span class="ar">3 مشاريع Next.js صغيرة فيها الحالات المهمة، وفيها فخاخ عشان أي false positive أو false negative يبان.</span><span class="en">Three small Next.js projects with the core cases, plus traps that expose false positives and false negatives.</span></p>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div class="tests">
+        <div><span class="fx">01-page-no-need</span><h3><span class="ar">صفحة عليها "use client" على الفاضي</span><span class="en">A page marked "use client" for nothing</span></h3><p><span class="ar">REMOVE، أو PUSH_DOWN لو فيه form تحتها معتمدة على الـ boundary في السر.</span><span class="en">REMOVE, or PUSH_DOWN when a form below silently relies on the boundary.</span></p></div>
+        <div><span class="fx">02-modal-children</span><h3><span class="ar">Modal محتاج Client بجد</span><span class="en">A Modal that really needs Client</span></h3><p><span class="ar">CHILDREN_PATTERN للمحتوى التقيل، وMOVE_FETCH لـ widget بيعمل fetch في useEffect.</span><span class="en">CHILDREN_PATTERN for the heavy content, MOVE_FETCH for a widget fetching in useEffect.</span></p></div>
+        <div><span class="fx">03-layout-boundary</span><h3><span class="ar">Layout بتسحب الدنيا كلها</span><span class="en">A layout dragging everything in</span></h3><p><span class="ar">High priority PUSH_DOWN: shell للـ menu، والـ usePathname بيتنقل جوه Breadcrumbs.</span><span class="en">High priority PUSH_DOWN: a shell for the menu, usePathname moved into Breadcrumbs.</span></p></div>
+      </div>
+      <div class="tests-foot"><span class="ar">كل check بيتجرّب بـ TypeScript وBabel والـ regex fallback:</span><span class="en">Every check runs with TypeScript, Babel and the regex fallback:</span> <code>node tests/run-tests.js</code> → <span class="mono">276 passed, 0 failed</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="chap"><span class="n">07</span><span class="tag">&lt;Install /&gt;</span></div>
+      <h2><span class="ar">سطّبها في دقيقة</span><span class="en">Install in a minute</span></h2>
+      <p class="sub"><span class="ar">Node.js 18 أو أحدث، ومن غير dependencies.</span><span class="en">Node.js 18+, zero dependencies.</span></p>
+    </div>
+    <div class="card">
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="git">Claude Code · git</button>
+        <button role="tab" aria-selected="false" data-tab="file">.skill file</button>
+        <button role="tab" aria-selected="false" data-tab="web">Claude.ai</button>
+      </div>
+      <div class="panel on" data-panel="git"><pre>git clone https://github.com/radyelkasas/nextjs-client-audit.git
+mkdir -p ~/.claude/skills
+cp -R nextjs-client-audit/nextjs-client-audit ~/.claude/skills/</pre><button class="copy" type="button">Copy</button>
+        <p><span class="ar">ولو عايزها لمشروع واحد بس، حطها في <code>.claude/skills/</code> جوه المشروع.</span><span class="en">For one project only, put it in that project's <code>.claude/skills/</code>.</span></p></div>
+      <div class="panel" data-panel="file"><pre>curl -LO https://github.com/radyelkasas/nextjs-client-audit/releases/latest/download/nextjs-client-audit.skill
+unzip nextjs-client-audit.skill -d ~/.claude/skills/</pre><button class="copy" type="button">Copy</button>
+        <p><span class="ar">ملف الـ <code>.skill</code> ده zip. تقدر تنزّله من هنا: <a href="https://github.com/radyelkasas/nextjs-client-audit/releases/latest/download/nextjs-client-audit.skill">nextjs-client-audit.skill</a></span><span class="en">A <code>.skill</code> file is a zip. Direct download: <a href="https://github.com/radyelkasas/nextjs-client-audit/releases/latest/download/nextjs-client-audit.skill">nextjs-client-audit.skill</a></span></p></div>
+      <div class="panel" data-panel="web"><pre>Settings → Capabilities → Skills → Upload skill
+→ nextjs-client-audit.skill</pre><button class="copy" type="button">Copy</button>
+        <p><span class="ar">في Claude.ai الـ Skill بتشتغل على الكود اللي ترفعه في المحادثة.</span><span class="en">On Claude.ai the skill works on code you upload to the conversation.</span></p></div>
+    </div>
+    <div class="try">
+      <span style="font-family:var(--display);font-weight:800;align-self:center"><span class="ar">وبعدين جرّب:</span><span class="en">Then try:</span></span>
+      <code>audit use client in this project</code>
+      <code>why is my dashboard bundle so big?</code>
+      <code dir="rtl" style="font-family:var(--body)">ليه الصفحة دي تقيلة؟</code>
+    </div>
+  </div>
+</section>
+
+<section id="faq" style="padding-top:20px">
+  <div class="wrap">
+    <h2 style="margin-bottom:22px"><span class="ar">أسئلة</span><span class="en">FAQ</span></h2>
+    <details><summary><span class="ar">الـ layout اللي عليها "use client" بتخلي كل الصفحات Client؟</span><span class="en">Does a "use client" layout make all my pages client?</span></summary><p><span class="ar">لأ. الصفحات بتيجي للـ layout كـ <code>children</code> فبتفضل Server Components. اللي بيتأثر هو الـ imports بتاعة الـ layout نفسها (Header وSidebar وFooter…)، ودي بتتبعت مع كل صفحة تحتها. والـ Skill بتقول الكلام ده بدقة.</span><span class="en">No. Pages reach the layout as <code>children</code>, so they stay Server Components. What ships is the layout's own imports (Header, Sidebar, Footer…), on every page under it. The skill says exactly that.</span></p></details>
+    <details><summary><span class="ar">ليه بتقول "≈13 module" مش KB؟</span><span class="en">Why "≈13 modules" and not KB?</span></summary><p><span class="ar">لأن الحجم الحقيقي بيتحدد وقت الـ build. الـ Skill بتعدّ من الـ import graph وبتقول إنه تقدير، وبتقولك تقارن الـ First Load JS بـ <code>next build</code> قبل وبعد.</span><span class="en">Real size is decided at build time. The skill counts from the import graph, labels it an estimate, and tells you to compare First Load JS with <code>next build</code> before and after.</span></p></details>
+    <details><summary><span class="ar">لو مشروعي مفيهوش TypeScript؟</span><span class="en">What if my project has no TypeScript installed?</span></summary><p><span class="ar">بتستخدم <code>@babel/parser</code> لو موجود. ولو مش موجود، بتشتغل بـ regex بحذر وبتقولك إن النتايج أقل دقة، وبتلجأ لـ "Needs manual check" أكتر.</span><span class="en">It uses <code>@babel/parser</code> if present; otherwise it falls back to a careful regex scan, tells you results are less precise, and uses "Needs manual check" more often.</span></p></details>
+    <details><summary><span class="ar">هتعدّل الكود بتاعي لوحدها؟</span><span class="en">Will it change my code by itself?</span></summary><p><span class="ar">لأ. الـ audit read-only. لو عايز Claude يطبّق حل، قوله، وهيطبّق حل واحد ويشغّل الـ type check ويعيد الـ audit.</span><span class="en">No. The audit is read-only. Ask Claude to apply a fix and it applies one, runs the type check, and re-audits.</span></p></details>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="sig"><b>R;</b> Rady Elkasas <span style="color:var(--soft);font-weight:500;font-size:16px">@radyelkasas</span></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;font-weight:500">
+      <a href="https://radyelkasas.com">radyelkasas.com</a>
+      <a href="https://github.com/radyelkasas/nextjs-client-audit">GitHub</a>
+      <span style="color:var(--soft)">MIT License</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  // ---- language
+  function setLang(l) {
+    root.setAttribute('data-lang', l);
+    root.setAttribute('lang', l);
+    root.setAttribute('dir', l === 'ar' ? 'rtl' : 'ltr');
+    try { localStorage.setItem('nca-lang', l); } catch (e) {}
+    renderDemo(mode, false);
+  }
+  var saved = null;
+  try { saved = localStorage.getItem('nca-lang'); } catch (e) {}
+  var qp = (location.search.match(/[?&]lang=(ar|en)/) || [])[1];
+  var initial = qp || saved || ((navigator.language || '').toLowerCase().indexOf('ar') === 0 ? 'ar' : 'en');
+  document.getElementById('langBtn').addEventListener('click', function () { setLang(root.getAttribute('data-lang') === 'ar' ? 'en' : 'ar'); });
+
+  // ---- terminal (real output of the audit on test project 3)
+  var lines = [
+    ['t-but', '> '], ['', 'audit use client in this project\n\n'],
+    ['t-dim', '● Running nextjs-client-audit (read-only)\n'],
+    ['t-dim', '  parser: typescript@5.9 · 16 files scanned\n\n'],
+    ['', '## 1. Summary\n'],
+    ['', '- 6 files start with '], ['t-but', '"use client"'], ['', '\n'],
+    ['', '- '], ['t-tom', '2 High priority'], ['', ' · 1 needs a manual check\n\n'],
+    ['', '## 2. Priority table\n'],
+    ['t-tom', 'High  '], ['t-but', 'PUSH_DOWN  '], ['', 'src/app/layout.tsx       ≈13 modules\n'],
+    ['t-tom', 'High  '], ['t-but', 'PUSH_DOWN  '], ['', 'settings/page.tsx        ≈2 + react-hook-form\n'],
+    ['t-dim', 'Low   REMOVE     LocaleSwitch.tsx  (needs manual check)\n\n'],
+    ['', '## 3. Before / After\n'],
+    ['t-mint', '+ <SidebarShell>  '], ['t-dim', '// owns the menu state\n'],
+    ['t-mint', '+ <Breadcrumbs /> '], ['t-dim', '// usePathname() moved inside\n'],
+    ['t-tom', '- "use client"    '], ['t-dim', '// layout is a Server Component again\n']
+  ];
+  var out = document.getElementById('termOut');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function typeAll() {
+    out.innerHTML = '';
+    if (reduce) { lines.forEach(function (l) { var s = document.createElement('span'); s.className = l[0]; s.textContent = l[1]; out.appendChild(s); }); return; }
+    var i = 0, j = 0, span = null;
+    var caret = document.createElement('span'); caret.className = 'caret';
+    function step() {
+      if (i >= lines.length) { out.appendChild(caret); setTimeout(typeAll, 6000); return; }
+      if (!span) { span = document.createElement('span'); span.className = lines[i][0]; out.appendChild(span); }
+      var text = lines[i][1];
+      var n = i === 1 ? 1 : 3;
+      span.textContent += text.slice(j, j + n); j += n;
+      out.appendChild(caret);
+      if (j >= text.length) { i++; j = 0; span = null; }
+      setTimeout(step, i <= 1 ? 45 : 12);
+    }
+    step();
+  }
+  typeAll();
+
+  // ---- boundary demo
+  var NODES = [
+    { id: 'page', name: 'page.tsx', x: 50, y: 6 },
+    { id: 'header', name: 'Header', x: 17, y: 40, parent: 'page' },
+    { id: 'posts', name: 'Posts', x: 50, y: 40, parent: 'page' },
+    { id: 'footer', name: 'Footer', x: 83, y: 40, parent: 'page' },
+    { id: 'like', name: 'LikeButton', x: 50, y: 74, parent: 'posts' }
+  ];
+  var tree = document.getElementById('tree');
+  var svg = document.getElementById('edges');
+  var els = {};
+  var server = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/></svg>';
+  var globe = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
+  NODES.forEach(function (n) {
+    var d = document.createElement('div');
+    d.className = 'node'; d.style.left = n.x + '%'; d.style.top = n.y + '%';
+    tree.appendChild(d); els[n.id] = d;
+  });
+  var note = document.createElement('div'); note.className = 'note'; note.textContent = '"use client"'; tree.appendChild(note);
+  function drawEdges() {
+    var w = tree.clientWidth, h = tree.clientHeight, p = '';
+    NODES.forEach(function (n) {
+      if (!n.parent) return;
+      var a = NODES.filter(function (x) { return x.id === n.parent; })[0];
+      var x1 = a.x / 100 * w, y1 = a.y / 100 * h + 64, x2 = n.x / 100 * w, y2 = n.y / 100 * h, my = (y1 + y2) / 2;
+      var on = els[n.id].classList.contains('client');
+      p += '<path d="M' + x1 + ' ' + y1 + ' C' + x1 + ' ' + my + ',' + x2 + ' ' + my + ',' + x2 + ' ' + y2 + '" fill="none" stroke="' + (on ? '#00A8CC' : 'currentColor') + '" stroke-width="' + (on ? 5 : 3.5) + '" stroke-linecap="round"/>';
+    });
+    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h); svg.innerHTML = p;
+  }
+  var mode = 'top';
+  var TEXT = {
+    top: { ar: 'الـ directive فوق الصفحة: page.tsx وكل الـ imports بتاعتها بقوا Client، و<b>5 chunks</b> نزلوا للمتصفح.', en: 'Directive on the page: page.tsx and everything it imports became Client, and <b>5 chunks</b> shipped to the browser.' },
+    down: { ar: 'نزلت بيها لـ LikeButton، الحتة الوحيدة اللي محتاجة onClick. الباقي رجع Server، و<b>chunk واحد بس</b> نزل للمتصفح.', en: 'Pushed down to LikeButton, the only piece that needs onClick. Everything else is Server again, and <b>only one chunk</b> ships.' }
+  };
+  function renderDemo(m, animate) {
+    mode = m;
+    var clientIds = m === 'top' ? ['page', 'header', 'posts', 'footer', 'like'] : ['like'];
+    NODES.forEach(function (n) {
+      var on = clientIds.indexOf(n.id) >= 0;
+      els[n.id].classList.toggle('client', on);
+      els[n.id].innerHTML = (on ? globe : server) + '<span>' + n.name + '</span>';
+    });
+    var target = m === 'top' ? NODES[0] : NODES[4];
+    note.style.left = 'calc(' + target.x + '% + 20px)';
+    note.style.top = 'calc(' + target.y + '% - 22px)';
+    var fence = document.getElementById('fence');
+    if (m === 'top') { fence.style.left = '1%'; fence.style.top = '2%'; fence.style.width = '98%'; fence.style.height = '96%'; }
+    else { fence.style.left = '30%'; fence.style.top = '70%'; fence.style.width = '40%'; fence.style.height = '26%'; }
+    var stack = document.getElementById('stack'); stack.innerHTML = '';
+    clientIds.forEach(function (id, k) {
+      var c = document.createElement('div'); c.className = 'chunk';
+      c.textContent = '📦 ' + NODES.filter(function (x) { return x.id === id; })[0].name.replace('.tsx', '') + '.js';
+      if (animate) c.style.animationDelay = (k * 0.09) + 's'; else c.style.animation = 'none';
+      stack.appendChild(c);
+    });
+    var b = document.getElementById('browser'); b.classList.toggle('heavy', m === 'top'); b.classList.toggle('light', m !== 'top');
+    var lang = root.getAttribute('data-lang');
+    document.getElementById('bfoot').innerHTML = m === 'top' ? '<span style="color:var(--tomato)">⚖️ ' + (lang === 'ar' ? 'تقيل' : 'heavy') + '</span>' : '<span style="color:var(--mint)">🪶 ' + (lang === 'ar' ? 'خفيف' : 'light') + '</span>';
+    document.getElementById('explain').innerHTML = TEXT[m][lang];
+    document.querySelectorAll('.toggle button').forEach(function (btn) { btn.setAttribute('aria-pressed', btn.getAttribute('data-mode') === m ? 'true' : 'false'); });
+    drawEdges();
+  }
+  document.querySelectorAll('.toggle button').forEach(function (btn) { btn.addEventListener('click', function () { renderDemo(btn.getAttribute('data-mode'), true); }); });
+  window.addEventListener('resize', drawEdges);
+
+  // ---- install tabs + copy
+  document.querySelectorAll('.tabs button').forEach(function (t) {
+    t.addEventListener('click', function () {
+      document.querySelectorAll('.tabs button').forEach(function (x) { x.setAttribute('aria-selected', x === t ? 'true' : 'false'); });
+      document.querySelectorAll('.panel').forEach(function (p) { p.classList.toggle('on', p.getAttribute('data-panel') === t.getAttribute('data-tab')); });
+    });
+  });
+  document.querySelectorAll('.copy').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var txt = b.parentNode.querySelector('pre').textContent;
+      var done = function () { b.textContent = '✓'; setTimeout(function () { b.textContent = 'Copy'; }, 1400); };
+      if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done, done); else done();
+    });
+  });
+
+  setLang(initial);
+  renderDemo('top', false);
+})();
+</script>
+</body>
+</html>

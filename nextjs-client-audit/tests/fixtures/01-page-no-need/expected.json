@@ -1,0 +1,80 @@
+{
+  "summary": {
+    "useClientFiles": 5,
+    "unnecessary": 3,
+    "highPriority": 2
+  },
+  "files": {
+    "app/page.tsx": {
+      "status": "Unnecessary",
+      "fix": "PUSH_DOWN",
+      "priority": "High",
+      "fixTargets": [
+        "components/NewsletterForm.tsx"
+      ]
+    },
+    "app/about/page.tsx": {
+      "status": "Unnecessary",
+      "fix": "REMOVE",
+      "priority": "High"
+    },
+    "components/PriceTag.tsx": {
+      "status": "Unnecessary",
+      "fix": "REMOVE",
+      "priority": "Low"
+    },
+    "components/ShareButton.tsx": {
+      "status": "Necessary",
+      "fix": null
+    },
+    "app/error.tsx": {
+      "status": "Required",
+      "fix": null
+    }
+  },
+  "notInReport": [
+    "components/Hero.tsx",
+    "components/Badge.tsx",
+    "components/__tests__/NewsletterForm.test.tsx"
+  ],
+  "warnings": [
+    {
+      "type": "misplaced-directive",
+      "file": "components/Badge.tsx"
+    }
+  ],
+  "drafts": [
+    {
+      "file": "app/page.tsx",
+      "afterFile": "app/page.tsx",
+      "excludes": [
+        "use client"
+      ]
+    },
+    {
+      "file": "app/page.tsx",
+      "afterFile": "components/NewsletterForm.tsx",
+      "startsWith": "\"use client\";"
+    },
+    {
+      "file": "app/about/page.tsx",
+      "afterFile": "app/about/page.tsx",
+      "excludes": [
+        "use client"
+      ],
+      "includes": [
+        "<TeamCard key={m.name} member={m} />"
+      ]
+    },
+    {
+      "file": "app/page.tsx",
+      "afterFile": "app/page.tsx",
+      "excludes": [
+        "// \u2026"
+      ],
+      "includes": [
+        "<NewsletterForm />"
+      ]
+    }
+  ]
+}
